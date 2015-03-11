@@ -110,6 +110,8 @@ protected:
 
   unsigned int client_ID_count_;
 
+  std::string repub_topic_name_;
+
 public:
 
   TFRepublisher(const std::string& name) :
@@ -124,6 +126,10 @@ public:
     tf_listener_(tf_buffer_),
     client_ID_count_(0)
   {
+    // Optional parameter 'repub_topic_name' will make all republished TF be
+    // published on this topic
+    priv_nh_.param("repub_topic_name", repub_topic_name_, std::string());
+
     tf_republish_service_ = nh_.advertiseService("republish_tfs",
                                                  &TFRepublisher::requestCB,
                                                  this);
@@ -233,7 +239,11 @@ public:
 
     request_info->client_ID_ = client_ID_count_;
     std::stringstream topicname;
-    topicname << "tf_repub_" << client_ID_count_++;
+    if(repub_topic_name_.empty()) {
+      topicname << "tf_repub_" << client_ID_count_++;
+    } else {
+      topicname << repub_topic_name_;
+    }
 
     request_info->pub_ = priv_nh_.advertise<tf2_web_republisher::TFArray>(topicname.str(), 10, true);
 
