@@ -55,6 +55,9 @@
 
 #include "tf_pair.h"
 
+bool
+getBaseName(const std::string& full_name, const std::string& search_term, std::string& base_name);
+
 class TFRepublisher
 {
 protected:
@@ -115,6 +118,8 @@ protected:
 
   std::string tf_prefix_;
 
+  std::string remove_prefix_;
+
 public:
 
   TFRepublisher(const std::string& name) :
@@ -134,6 +139,8 @@ public:
     priv_nh_.param("repub_topic_name", repub_topic_name_, std::string());
 
     priv_nh_.param("tf_prefix", tf_prefix_, std::string());
+
+    priv_nh_.param("remove_prefix", remove_prefix_, std::string());
 
     tf_republish_service_ = nh_.advertiseService("republish_tfs",
                                                  &TFRepublisher::requestCB,
@@ -334,8 +341,19 @@ public:
       if (it->updateNeeded())
       {
         transform.header.stamp = ros::Time::now();
-        transform.header.frame_id = tf::resolve(tf_prefix_, it->getTargetFrame());
-        transform.child_frame_id = tf::resolve(tf_prefix_, it->getSourceFrame());
+
+        if(remove_prefix_.size()){
+            std::string parent_id;
+            std::string child_id;
+            getBaseName(it->getTargetFrame(), remove_prefix_, parent_id);
+            getBaseName(it->getSourceFrame(), remove_prefix_, child_id);
+
+            transform.header.frame_id = cleanTfFrame(parent_id);
+            transform.child_frame_id = cleanTfFrame(child_id);
+        }else{
+            transform.header.frame_id = tf::resolve(tf_prefix_, it->getTargetFrame());
+            transform.child_frame_id = tf::resolve(tf_prefix_, it->getSourceFrame());
+        }
 
         // notify tf_subscription that a network transmission has been triggered
         it->transmissionTriggered();
@@ -401,3 +419,27 @@ int main(int argc, char **argv)
 
   return 0;
 }
+
+bool
+getBaseName(const std::string& full_name, const std::string& search_term, std::string& base_name)
+{
+  std::string tmp = full_name;
+  int i = tmp.rfind(search_term);
+  int size = search_term.size();
+
+  if(tmp.size() == 0)
+  {
+    //cout << "Base name extracted from " << full_name.c_str() << " is an empty string" << endl;
+    return false;
+  }
+
+  if(i < 0)
+    base_name = tmp;
+  else{
+    base_name = tmp.erase(i, size);
+  }
+
+  return true;
+}
+
+
