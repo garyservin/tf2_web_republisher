@@ -42,6 +42,7 @@
 #include <boost/thread/mutex.hpp>
 #include "boost/thread.hpp"
 
+#include "tf/tf.h"
 #include <tf/tfMessage.h>
 #include <tf/transform_datatypes.h>
 #include <geometry_msgs/TransformStamped.h>
@@ -112,6 +113,8 @@ protected:
 
   std::string repub_topic_name_;
 
+  std::string tf_prefix_;
+
 public:
 
   TFRepublisher(const std::string& name) :
@@ -129,6 +132,8 @@ public:
     // Optional parameter 'repub_topic_name' will make all republished TF be
     // published on this topic
     priv_nh_.param("repub_topic_name", repub_topic_name_, std::string());
+
+    priv_nh_.param("tf_prefix", tf_prefix_, std::string());
 
     tf_republish_service_ = nh_.advertiseService("republish_tfs",
                                                  &TFRepublisher::requestCB,
@@ -329,8 +334,8 @@ public:
       if (it->updateNeeded())
       {
         transform.header.stamp = ros::Time::now();
-        transform.header.frame_id = it->getTargetFrame();
-        transform.child_frame_id = it->getSourceFrame();
+        transform.header.frame_id = tf::resolve(tf_prefix_, it->getTargetFrame());
+        transform.child_frame_id = tf::resolve(tf_prefix_, it->getSourceFrame());
 
         // notify tf_subscription that a network transmission has been triggered
         it->transmissionTriggered();
